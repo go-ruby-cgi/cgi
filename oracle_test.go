@@ -172,7 +172,11 @@ func TestOracleUnescapeURIComponent(t *testing.T) {
 
 func TestOracleEscapeHTML(t *testing.T) {
 	bin := rubyBin(t)
-	corpus := []string{"", "plain", "&<>\"'", `<a href="x">&'`, "a&b&c", "1<2>3"}
+	corpus := []string{"", "plain", "&<>\"'", `<a href="x">&'`, "a&b&c", "1<2>3",
+		// A long run of purely safe bytes exercises the no-escape fast path; a
+		// dense block of the widest entity ('"' -> "&quot;", 6× growth) forces
+		// the output past the 2×len estimate so the append-grow path is covered.
+		strings.Repeat("safe ascii text ", 8), strings.Repeat("\"", 64)}
 	want := rubyMap(t, bin, `require "cgi"`, "CGI.escapeHTML(s)", corpus)
 	for i, in := range corpus {
 		if got := EscapeHTML(in); got != want[i] {
@@ -190,6 +194,7 @@ func TestOracleUnescapeHTML(t *testing.T) {
 		"&AMP;", "&nbsp;", "&amp;amp;", "&foo&amp;", "&lt&gt;",
 		"&#1234567890123;", "&#x110000;", "&#1114111;", "&#1114110;",
 		"&#xD800;", "&", "mixed &amp; text &lt;ok&gt;",
+		strings.Repeat("no entities here ", 8), strings.Repeat("&amp;", 32),
 	}
 	want := rubyMap(t, bin, `require "cgi"`, "CGI.unescapeHTML(s)", corpus)
 	for i, in := range corpus {

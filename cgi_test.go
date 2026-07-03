@@ -91,6 +91,12 @@ func TestEscapeHTML(t *testing.T) {
 		{"plain text", "plain text"},
 		{`&<>"'`, "&amp;&lt;&gt;&quot;&#39;"},
 		{`<a href="x">&'`, `&lt;a href=&quot;x&quot;&gt;&amp;&#39;`},
+		// A dense block of the widest entity ('"' -> "&quot;") grows the output
+		// to 6× the input, past the 2×len estimate, covering the append-grow path.
+		{`""""`, "&quot;&quot;&quot;&quot;"},
+		// Escapable byte only after a long safe prefix: the fast-path scan skips
+		// the run, then the entity is spliced in.
+		{"a long safe prefix then <", "a long safe prefix then &lt;"},
 	}
 	for _, c := range cases {
 		if got := EscapeHTML(c.in); got != c.want {
